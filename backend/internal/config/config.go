@@ -46,6 +46,9 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.BindEnv("SECURE_COOKIE")
 	viper.BindEnv("ALLOWED_ORIGINS")
 
+	// Force viper to read env vars
+	viper.AllKeys()
+
 	// Set default values
 	viper.SetDefault("PORT", "8080")
 	viper.SetDefault("ENABLE_CACHE", false)

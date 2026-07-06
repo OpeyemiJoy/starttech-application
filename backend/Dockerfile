@@ -7,8 +7,7 @@ RUN go mod download
 
 COPY . .
 
-# Force rebuild by setting a build timestamp
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X main.BuildTime=$(date)" -o much-to-do ./cmd/api/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o much-to-do ./cmd/api/main.go
 
 FROM alpine:3.20
 

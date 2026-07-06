@@ -89,11 +89,18 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	_, err = h.collection.InsertOne(context.Background(), newUser)
+
+	result, err := h.collection.InsertOne(context.Background(), newUser)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		log.Printf("InsertOne failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to create user",
+			"details": err.Error(),
+		})
 		return
 	}
+
+	log.Printf("User created successfully: %v", result.InsertedID)
 
 	// Username is now taken, so cache this information
 	usernameCacheKey := fmt.Sprintf("username-taken:%s", newUser.Username)
