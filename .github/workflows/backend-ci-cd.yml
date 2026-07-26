@@ -52,16 +52,20 @@ jobs:
           starttech-backend-api:${{ github.sha }} \
           513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:${{ github.sha }}
 
-      - name: Push Image
-        run: |
-          docker push \
-          513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:${{ github.sha }}
-
       - name: Scan Image
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:${{ github.sha }}
           severity: HIGH,CRITICAL
+
+      - name: Push Image
+        run: |
+          docker push \
+          513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:${{ github.sha }}
+
+      - name: Update Kubernetes manifest image
+        run: |
+          sed -i "s|IMAGE_TAG|${{ github.sha }}|g" k8s/deployment.yaml
 
       - name: Deploy to EKS
         run: |
@@ -69,8 +73,7 @@ jobs:
           --name starttech-cluster \
           --region eu-north-1
 
-          kubectl set image deployment/backend-api \
-          backend-api=513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:${{ github.sha }}
+          kubectl apply -f k8s/
 
       - name: Verify Rollout
         run: |
