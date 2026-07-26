@@ -5,18 +5,70 @@ on:
     branches: [main]
     paths:
       - "backend/**"
+      - "k8s/**"
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Go tests
+        run: |
+          cd backend
+          go test ./...
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-north-1
-      - run: aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 513282885838.dkr.ecr.eu-north-1.amazonaws.com
-      - run: cd backend && docker build -t starttech-backend-api:latest . && docker tag starttech-backend-api:latest 513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:latest && docker push 513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:latest
-      - run: aws eks update-kubeconfig --name starttech-cluster --region eu-north-1 && kubectl set image deployment/backend-api backend-api=513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:latest
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region eu-north-1 | \
+          docker login --username AWS \
+          --password-stdin 513282885838.dkr.ecr.eu-north-1.amazonaws.com
+
+      - name: Build Docker image
+        run: |
+          docker build \
+          -t starttech-backend-api:${{ github.sha }} \
+          ./backend
+
+      - name: Tag Docker image
+        run: |
+          docker tag \
+          starttech-backend-api:${{ github.sha }} \
+          513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:${{ github.sha }}
+
+      - name: Push image to ECR
+        run: |
+          docker push \
+          513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:${{ github.sha }}
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:${{ github.sha }}
+          severity: HIGH,CRITICAL
+
+      - name: Update Kubernetes image
+        run: |
+          sed -i "s|image:.*|image: 513282885838.dkr.ecr.eu-north-1.amazonaws.com/starttech-backend-api:${{ github.sha }}|" k8s/deployment.yaml
+
+      - name: Deploy to EKS
+        run: |
+          aws eks update-kubeconfig \
+          --name starttech-cluster \
+          --region eu-north-1
+
+          kubectl apply -f k8s/
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/backend-api
