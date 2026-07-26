@@ -11,3 +11,5 @@ bin/
 .DS_Store
 backend/.env
 backend/mongodb.key
+k8s/backend-secret.yaml
+backend/.env
