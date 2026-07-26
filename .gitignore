@@ -9,3 +9,5 @@ bin/
 *.a
 *.so
 .DS_Store
+backend/.env
+backend/mongodb.key

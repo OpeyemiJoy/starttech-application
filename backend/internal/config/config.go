@@ -1,7 +1,7 @@
 package config
 
 import (
-	"strings"
+	"os"
 
 	"github.com/spf13/viper"
 )
@@ -31,7 +31,7 @@ func LoadConfig(path string) (config Config, err error) {
 
 	viper.AutomaticEnv()
 
-	// Explicitly bind env vars so Unmarshal picks them up correctly
+	// Bind environment variables
 	viper.BindEnv("PORT")
 	viper.BindEnv("MONGO_URI")
 	viper.BindEnv("DB_NAME")
@@ -46,10 +46,7 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.BindEnv("SECURE_COOKIE")
 	viper.BindEnv("ALLOWED_ORIGINS")
 
-	// Force viper to read env vars
-	viper.AllKeys()
-
-	// Set default values
+	// Default values
 	viper.SetDefault("PORT", "8080")
 	viper.SetDefault("ENABLE_CACHE", false)
 	viper.SetDefault("JWT_EXPIRATION_HOURS", 72)
@@ -57,6 +54,7 @@ func LoadConfig(path string) (config Config, err error) {
 	viper.SetDefault("SECURE_COOKIE", false)
 	viper.SetDefault("ALLOWED_ORIGINS", []string{"http://localhost:5173"})
 
+	// Read .env if it exists
 	err = viper.ReadInConfig()
 	if err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
@@ -64,39 +62,40 @@ func LoadConfig(path string) (config Config, err error) {
 		}
 	}
 
-	err = viper.Unmarshal(&config)
-	if err != nil {
-		return
+	// Read environment variables first
+	config.ServerPort = os.Getenv("PORT")
+	if config.ServerPort == "" {
+		config.ServerPort = viper.GetString("PORT")
 	}
 
-	// Manually handle comma-separated strings for slices if viper didn't split them
-	if allowedOrigins := viper.GetString("ALLOWED_ORIGINS"); allowedOrigins != "" {
-		parts := strings.Split(allowedOrigins, ",")
-		var cleaned []string
-		for _, p := range parts {
-			// Trim spaces and quotes
-			trimmed := strings.TrimSpace(p)
-			trimmed = strings.Trim(trimmed, "\"'")
-			if trimmed != "" {
-				cleaned = append(cleaned, trimmed)
-			}
-		}
-		config.AllowedOrigins = cleaned
+	config.MongoURI = os.Getenv("MONGO_URI")
+	if config.MongoURI == "" {
+		config.MongoURI = viper.GetString("MONGO_URI")
 	}
 
-	if cookieDomains := viper.GetString("COOKIE_DOMAINS"); cookieDomains != "" {
-		parts := strings.Split(cookieDomains, ",")
-		var cleaned []string
-		for _, p := range parts {
-			// Trim spaces and quotes
-			trimmed := strings.TrimSpace(p)
-			trimmed = strings.Trim(trimmed, "\"'")
-			if trimmed != "" {
-				cleaned = append(cleaned, trimmed)
-			}
-		}
-		config.CookieDomains = cleaned
+	config.DBName = os.Getenv("DB_NAME")
+	if config.DBName == "" {
+		config.DBName = viper.GetString("DB_NAME")
 	}
 
-	return
+	config.RedisAddr = os.Getenv("REDIS_HOST")
+	if config.RedisAddr == "" {
+		config.RedisAddr = viper.GetString("REDIS_HOST")
+	}
+
+	config.RedisPassword = os.Getenv("REDIS_PASSWORD")
+	if config.RedisPassword == "" {
+		config.RedisPassword = viper.GetString("REDIS_PASSWORD")
+	}
+
+	config.JWTSecretKey = viper.GetString("JWT_SECRET_KEY")
+	config.JWTExpirationHours = viper.GetInt("JWT_EXPIRATION_HOURS")
+	config.EnableCache = viper.GetBool("ENABLE_CACHE")
+	config.LogLevel = viper.GetString("LOG_LEVEL")
+	config.LogFormat = viper.GetString("LOG_FORMAT")
+	config.CookieDomains = viper.GetStringSlice("COOKIE_DOMAINS")
+	config.SecureCookie = viper.GetBool("SECURE_COOKIE")
+	config.AllowedOrigins = viper.GetStringSlice("ALLOWED_ORIGINS")
+
+	return config, nil
 }

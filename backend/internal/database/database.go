@@ -11,7 +11,6 @@ import (
 
 // ConnectMongo establishes a connection to MongoDB using the provided URI.
 func ConnectMongo(uri, dbName string) (*mongo.Client, error) {
-	// Set a timeout for the connection attempt.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -20,9 +19,7 @@ func ConnectMongo(uri, dbName string) (*mongo.Client, error) {
 		return nil, err
 	}
 
-	// Ping the primary node to verify that the connection is alive.
-	err = client.Ping(ctx, readpref.Primary())
-	if err != nil {
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
 		return nil, err
 	}
 
